@@ -35,6 +35,19 @@ py::array_t<T> py_array_from_vector(const std::vector<T> &v) {
 }
 
 
+double py_array_get(const pyarray_d &arr, size_t i) {
+    return arr.data()[i];
+}
+
+
+double py_array_get(const pyarray_d &arr, size_t i, size_t j) {
+    return arr.data()[i * arr.shape(1) + j];
+}
+
+
+double py_array_get2D(const pyarray_d &arr, size_t i, size_t j) {
+    return arr.data()[i * arr.shape(1) * arr.shape(2) + j];
+}
 }
 
 #endif // __TYPES_H__

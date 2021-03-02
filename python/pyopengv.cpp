@@ -28,14 +28,53 @@ opengv::bearingVector_t bearingVectorFromArray(
   return v;
 }
 
+size_t indexFromArray(
+    const pyarray_d &array,
+    size_t index )
+{
+  size_t val = (size_t) py_array_get(array, index);
+  return val;
+}
+
+opengv::translation_t translationFromArray(
+    const pyarray_d &array,
+    size_t index )
+{
+  opengv::translation_t t;
+  t[0] = py_array_get(array, index, 0);
+  t[1] = py_array_get(array, index, 1);
+  t[2] = py_array_get(array, index, 2);
+  return t;
+}
+
+
+
+opengv::rotation_t rotationFromArray(
+    const pyarray_d &array,
+    size_t index )
+{
+  opengv::rotation_t R;
+
+  R(0,0) = py_array_get2D(array, index, 0);
+  R(0,1) = py_array_get2D(array, index, 1);
+  R(0,2) = py_array_get2D(array, index, 2);
+  R(1,0) = py_array_get2D(array, index, 3);
+  R(1,1) = py_array_get2D(array, index, 4);
+  R(1,2) = py_array_get2D(array, index, 5);
+  R(2,0) = py_array_get2D(array, index, 6);
+  R(2,1) = py_array_get2D(array, index, 7);
+  R(2,2) = py_array_get2D(array, index, 8);
+  return R;
+}
+
 opengv::point_t pointFromArray(
     const pyarray_d &array,
     size_t index )
 {
   opengv::point_t p;
-  p[0] = *array.data(index, 0);
-  p[1] = *array.data(index, 1);
-  p[2] = *array.data(index, 2);
+  p[0] = py_array_get(array, index, 0);
+  p[1] = py_array_get(array, index, 1);
+  p[2] = py_array_get(array, index, 2);
   return p;
 }
 
@@ -108,6 +147,197 @@ std::vector<int> getNindices( int n )
   return indices;
 }
 
+
+namespace absolute_pose_noncentral {
+
+class NonCentralAbsoluteAdapter : public opengv::absolute_pose::AbsoluteAdapterBase
+{
+protected:
+  using AbsoluteAdapterBase::_t;
+  using AbsoluteAdapterBase::_R;
+
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+  NonCentralAbsoluteAdapter(
+      pyarray_d &bearingVectors,
+      pyarray_d &camCorrespondences,
+      pyarray_d &points,
+      pyarray_d &camOffsets,
+      pyarray_d &camRotations
+  )
+    : _bearingVectors(bearingVectors)
+    , _camCorrespondences(camCorrespondences)
+    , _points(points)
+    , _camOffsets(camOffsets)
+    , _camRotations(camRotations)
+  {
+  }
+
+  NonCentralAbsoluteAdapter(
+      pyarray_d &bearingVectors,
+      pyarray_d &camCorrespondences,
+      pyarray_d &points,
+      pyarray_d &camOffsets,
+      pyarray_d &camRotations,
+      pyarray_d &R )
+    : _bearingVectors(bearingVectors)
+    , _camCorrespondences(camCorrespondences)
+    , _points(points)
+    , _camOffsets(camOffsets)
+    , _camRotations(camRotations)
+  {
+    pyarray_d R_view(R);
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        _R(i, j) = py_array_get(R_view, i, j);
+      }
+    }
+  }
+
+  NonCentralAbsoluteAdapter(
+      pyarray_d &bearingVectors,
+      pyarray_d &camCorrespondences,
+      pyarray_d &points,
+      pyarray_d &camOffsets,
+      pyarray_d &camRotations,
+      pyarray_d &t,
+      pyarray_d &R )
+    : _bearingVectors(bearingVectors)
+    , _camCorrespondences(camCorrespondences)
+    , _points(points)
+    , _camOffsets(camOffsets)
+    , _camRotations(camRotations)
+  {
+    pyarray_d t_view(t);
+    for (int i = 0; i < 3; ++i) {
+      _t(i) = py_array_get(t_view, i);
+    }
+    pyarray_d R_view(R);
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        _R(i, j) = py_array_get(R_view, i, j);
+      }
+    }
+  }
+
+  virtual ~NonCentralAbsoluteAdapter() {}
+
+  //Access of correspondences
+
+  virtual opengv::bearingVector_t getBearingVector( size_t index ) const {
+    //std::cout << "Getting bearing vector with index " << (int) index << std::endl;
+    return bearingVectorFromArray(_bearingVectors, index);
+  }
+
+  virtual size_t getcamCorrespondence( size_t index ) const {
+    //std::cout << "Getting cam correspondence for index " << (int) index << std::endl;
+    return indexFromArray(_camCorrespondences, index);
+  }
+
+  virtual double getWeight( size_t index ) const {
+    return 1.0;
+  }
+
+  virtual opengv::translation_t getCamOffset( size_t index ) const {
+    size_t cam_index = getcamCorrespondence(index);
+    //std::cout << "Getting offset of cam index " << (int) cam_index << std::endl;
+    return translationFromArray(_camOffsets, cam_index);
+  }
+
+  virtual opengv::rotation_t getCamRotation( size_t index ) const {
+    size_t cam_index = getcamCorrespondence(index);
+    //std::cout << "Getting rotation of cam index " << (int) cam_index << std::endl;
+    return rotationFromArray(_camRotations, cam_index);
+  }
+
+  virtual opengv::point_t getPoint( size_t index ) const {
+    //std::cout << "Getting point index " << (int) index << std::endl;
+    return pointFromArray(_points, index);
+  }
+
+  virtual size_t getNumberCorrespondences() const {
+    //std::cout << "Asking for number of correspondences = " << (int) _bearingVectors.shape(0) << std::endl;
+    return _bearingVectors.shape(0);
+  }
+
+protected:
+  pyarray_d _bearingVectors;
+  pyarray_d _camCorrespondences;
+  pyarray_d _points;
+  pyarray_d _camOffsets;
+  pyarray_d _camRotations;
+
+};
+
+
+py::object gp3p( pyarray_d &v, pyarray_d &c, pyarray_d &p, pyarray_d &camOffsets, pyarray_d &camRotations)
+{
+  NonCentralAbsoluteAdapter adapter(v, c, p, camOffsets, camRotations);
+  return listFromTransformations(opengv::absolute_pose::gp3p(adapter, 0, 1, 2));
+}
+
+py::object gpnp( pyarray_d &v, pyarray_d &c, pyarray_d &p, pyarray_d &camOffsets, pyarray_d &camRotations)
+{
+  NonCentralAbsoluteAdapter adapter(v, c, p, camOffsets, camRotations);
+  return arrayFromTransformation(opengv::absolute_pose::gpnp(adapter));
+}
+
+py::object upnp( pyarray_d &v, pyarray_d &c, pyarray_d &p, pyarray_d &camOffsets, pyarray_d &camRotations)
+{
+  NonCentralAbsoluteAdapter adapter(v, c, p, camOffsets, camRotations);
+  return listFromTransformations(opengv::absolute_pose::upnp(adapter));
+}
+
+py::object optimize_nonlinear(pyarray_d &v,
+                              pyarray_d &c,
+                              pyarray_d &p,
+                              pyarray_d &camOffsets,
+                              pyarray_d &camRotations,
+                              pyarray_d &t,
+                              pyarray_d &R)
+{
+  NonCentralAbsoluteAdapter adapter(v, c, p, camOffsets, camRotations, t, R);
+  return arrayFromTransformation(opengv::absolute_pose::optimize_nonlinear(adapter));
+}
+
+
+py::tuple ransac( pyarray_d &v,
+                  pyarray_d &c,
+                  pyarray_d &p,
+                  pyarray_d &camOffsets,
+                  pyarray_d &camRotations,
+                  double threshold,
+                  int max_iterations )
+{
+  using namespace opengv::sac_problems::absolute_pose;
+
+  NonCentralAbsoluteAdapter adapter(v, c, p, camOffsets, camRotations);
+
+  // Create a ransac problem
+  // NOTE: Only can use GP3P for the non-central case
+  AbsolutePoseSacProblem::algorithm_t algorithm = AbsolutePoseSacProblem::GP3P;
+
+  std::shared_ptr<AbsolutePoseSacProblem>
+      absposeproblem_ptr(
+        new AbsolutePoseSacProblem(adapter, algorithm));
+
+  // Create a ransac solver for the problem
+  opengv::sac::Ransac<AbsolutePoseSacProblem> ransac;
+
+  ransac.sac_model_ = absposeproblem_ptr;
+  ransac.threshold_ = threshold;
+  ransac.max_iterations_ = max_iterations;
+
+  // Solve
+  ransac.computeModel();
+
+  py::object transformation_result = arrayFromTransformation(ransac.model_coefficients_);
+  py::object inlier_indices = py_array_from_vector(ransac.inliers_);
+  return py::make_tuple(transformation_result, inlier_indices);
+}
+
+} // namespace absolute_pose_noncentral
 
 namespace absolute_pose {
 
@@ -735,6 +965,11 @@ PYBIND11_MODULE(pyopengv, m) {
   );
 
 
+  m.def("absolute_pose_noncentral_gp3p", pyopengv::absolute_pose_noncentral::gp3p);
+  m.def("absolute_pose_noncentral_gpnp", pyopengv::absolute_pose_noncentral::gpnp);
+  m.def("absolute_pose_noncentral_upnp", pyopengv::absolute_pose_noncentral::upnp);
+  m.def("absolute_pose_noncentral_optimize_nonlinear", pyopengv::absolute_pose_noncentral::optimize_nonlinear);
+  m.def("absolute_pose_noncentral_ransac", pyopengv::absolute_pose_noncentral::ransac);
 
   m.def("triangulation_triangulate", pyopengv::triangulation::triangulate);
   m.def("triangulation_triangulate2", pyopengv::triangulation::triangulate2);
