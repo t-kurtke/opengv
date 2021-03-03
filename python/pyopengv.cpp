@@ -16,137 +16,111 @@
 
 namespace pyopengv {
 
-
-opengv::bearingVector_t bearingVectorFromArray(
-    const pyarray_d &array,
-    size_t index )
-{
-  opengv::bearingVector_t v;
-  v[0] = *array.data(index, 0);
-  v[1] = *array.data(index, 1);
-  v[2] = *array.data(index, 2);
-  return v;
-}
-
-size_t indexFromArray(
-    const pyarray_d &array,
-    size_t index )
-{
-  size_t val = (size_t) py_array_get(array, index);
-  return val;
-}
-
-opengv::translation_t translationFromArray(
-    const pyarray_d &array,
-    size_t index )
-{
-  opengv::translation_t t;
-  t[0] = py_array_get(array, index, 0);
-  t[1] = py_array_get(array, index, 1);
-  t[2] = py_array_get(array, index, 2);
-  return t;
-}
+    size_t indexFromArray(const pyarray_d &array, size_t index){
+        return *array.data(index);
+    }
 
 
 
-opengv::rotation_t rotationFromArray(
-    const pyarray_d &array,
-    size_t index )
-{
-  opengv::rotation_t R;
 
-  R(0,0) = py_array_get2D(array, index, 0);
-  R(0,1) = py_array_get2D(array, index, 1);
-  R(0,2) = py_array_get2D(array, index, 2);
-  R(1,0) = py_array_get2D(array, index, 3);
-  R(1,1) = py_array_get2D(array, index, 4);
-  R(1,2) = py_array_get2D(array, index, 5);
-  R(2,0) = py_array_get2D(array, index, 6);
-  R(2,1) = py_array_get2D(array, index, 7);
-  R(2,2) = py_array_get2D(array, index, 8);
-  return R;
-}
+    opengv::point_t pointFromArray(
+            const pyarray_d &array,
+            size_t index )
 
-opengv::point_t pointFromArray(
-    const pyarray_d &array,
-    size_t index )
-{
-  opengv::point_t p;
-  p[0] = py_array_get(array, index, 0);
-  p[1] = py_array_get(array, index, 1);
-  p[2] = py_array_get(array, index, 2);
-  return p;
-}
+    {
+    std::cout << "index: " << index << "    shape " << array.shape()[0]<<", "<<array.shape()[1] << "\n";
+        opengv::point_t p;
+        p[0] = *array.data(index, 0);
+        p[1] = *array.data(index, 1);
+        p[2] = *array.data(index, 2);
+        std::cout << p[0]<<", "<< p[1]<<", "<< p[2]<<"\n";
+        return p;
+    }
+    opengv::bearingVector_t bearingVectorFromArray(
+            const pyarray_d &array,
+            size_t index )
+    {
+        return pointFromArray(array, index);
+    }
 
-py::object arrayFromPoints( const opengv::points_t &points )
-{
-  std::vector<double> data(points.size() * 3);
-  for (size_t i = 0; i < points.size(); ++i) {
-    data[3 * i + 0] = points[i][0];
-    data[3 * i + 1] = points[i][1];
-    data[3 * i + 2] = points[i][2];
-  }
-  return py_array_from_data(&data[0], points.size(), 3);
-}
+    opengv::rotation_t rotationFromArray(const pyarray_d &array, size_t index){
+        auto shape = array.shape();
+        opengv::rotation_t R;
+        for (int i = 0; i < 3; i++){
+            for(int j = 0; j < 3; j++){
+                R(i, j) = *array.data(i + index * 3, j);
+            }
+        }
+        return R;
+    }
+    py::object arrayFromPoints( const opengv::points_t &points )
+    {
+        std::vector<double> data(points.size() * 3);
+        for (size_t i = 0; i < points.size(); ++i) {
+            data[3 * i + 0] = points[i][0];
+            data[3 * i + 1] = points[i][1];
+            data[3 * i + 2] = points[i][2];
+        }
+        return py_array_from_data(&data[0], points.size(), 3);
+    }
 
-py::object arrayFromTranslation( const opengv::translation_t &t )
-{
-  return py_array_from_data(t.data(), 3);
-}
+    py::object arrayFromTranslation( const opengv::translation_t &t )
+    {
+        return py_array_from_data(t.data(), 3);
+    }
 
-py::object arrayFromRotation( const opengv::rotation_t &R )
-{
-  Eigen::Matrix<double, 3, 3, Eigen::RowMajor> R_row_major = R;
-  return py_array_from_data(R_row_major.data(), 3, 3);
-}
+    py::object arrayFromRotation( const opengv::rotation_t &R )
+    {
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> R_row_major = R;
+        return py_array_from_data(R_row_major.data(), 3, 3);
+    }
 
-py::list listFromRotations( const opengv::rotations_t &Rs )
-{
-  py::list retn;
-  for (size_t i = 0; i < Rs.size(); ++i) {
-    retn.append(arrayFromRotation(Rs[i]));
-  }
-  return retn;
-}
+    py::list listFromRotations( const opengv::rotations_t &Rs )
+    {
+        py::list retn;
+        for (size_t i = 0; i < Rs.size(); ++i) {
+            retn.append(arrayFromRotation(Rs[i]));
+        }
+        return retn;
+    }
 
-py::object arrayFromEssential( const opengv::essential_t &E )
-{
-  Eigen::Matrix<double, 3, 3, Eigen::RowMajor> E_row_major = E;
-  return py_array_from_data(E_row_major.data(), 3, 3);
-}
+    py::object arrayFromEssential( const opengv::essential_t &E )
+    {
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> E_row_major = E;
+        return py_array_from_data(E_row_major.data(), 3, 3);
+    }
 
-py::list listFromEssentials( const opengv::essentials_t &Es )
-{
-  py::list retn;
-  for (size_t i = 0; i < Es.size(); ++i) {
-    retn.append(arrayFromEssential(Es[i]));
-  }
-  return retn;
-}
+    py::list listFromEssentials( const opengv::essentials_t &Es )
+    {
+        py::list retn;
+        for (size_t i = 0; i < Es.size(); ++i) {
+            retn.append(arrayFromEssential(Es[i]));
+        }
+        return retn;
+    }
 
-py::object arrayFromTransformation( const opengv::transformation_t &t )
-{
-  Eigen::Matrix<double, 3, 4, Eigen::RowMajor> t_row_major = t;
-  return py_array_from_data(t_row_major.data(), 3, 4);
-}
+    py::object arrayFromTransformation( const opengv::transformation_t &t )
+    {
+        Eigen::Matrix<double, 3, 4, Eigen::RowMajor> t_row_major = t;
+        return py_array_from_data(t_row_major.data(), 3, 4);
+    }
 
-py::list listFromTransformations( const opengv::transformations_t &t )
-{
-  py::list retn;
-  for (size_t i = 0; i < t.size(); ++i) {
-    retn.append(arrayFromTransformation(t[i]));
-  }
-  return retn;
-}
+    py::list listFromTransformations( const opengv::transformations_t &t )
+    {
+        py::list retn;
+        for (size_t i = 0; i < t.size(); ++i) {
+            retn.append(arrayFromTransformation(t[i]));
+        }
+        return retn;
+    }
 
-std::vector<int> getNindices( int n )
-{
-  std::vector<int> indices;
-  for(int i = 0; i < n; i++)
-    indices.push_back(i);
-  return indices;
-}
-
+    std::vector<int> getNindices( int n )
+    {
+        std::vector<int> indices;
+        for(int i = 0; i < n; i++)
+            indices.push_back(i);
+        return indices;
+    }
 
 namespace absolute_pose_noncentral {
 
@@ -242,13 +216,15 @@ public:
   virtual opengv::translation_t getCamOffset( size_t index ) const {
     size_t cam_index = getcamCorrespondence(index);
     //std::cout << "Getting offset of cam index " << (int) cam_index << std::endl;
-    return translationFromArray(_camOffsets, cam_index);
+    return pointFromArray(_camOffsets, cam_index);
   }
 
   virtual opengv::rotation_t getCamRotation( size_t index ) const {
     size_t cam_index = getcamCorrespondence(index);
     //std::cout << "Getting rotation of cam index " << (int) cam_index << std::endl;
-    return rotationFromArray(_camRotations, cam_index);
+    opengv::rotation_t rtn = rotationFromArray(_camRotations, cam_index);
+    std::cout << "cam index: " << cam_index << "\n"<<"cam rot " << rtn << "\n";
+    return rtn;
   }
 
   virtual opengv::point_t getPoint( size_t index ) const {
