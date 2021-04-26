@@ -28,12 +28,12 @@ namespace pyopengv {
             size_t index )
 
     {
-    std::cout << "index: " << index << "    shape " << array.shape()[0]<<", "<<array.shape()[1] << "\n";
+    //std::cout << "index: " << index << "    shape " << array.shape()[0]<<", "<<array.shape()[1] << "\n";
         opengv::point_t p;
         p[0] = *array.data(index, 0);
         p[1] = *array.data(index, 1);
         p[2] = *array.data(index, 2);
-        std::cout << p[0]<<", "<< p[1]<<", "<< p[2]<<"\n";
+        //std::cout << p[0]<<", "<< p[1]<<", "<< p[2]<<"\n";
         return p;
     }
     opengv::bearingVector_t bearingVectorFromArray(
@@ -44,7 +44,6 @@ namespace pyopengv {
     }
 
     opengv::rotation_t rotationFromArray(const pyarray_d &array, size_t index){
-        auto shape = array.shape();
         opengv::rotation_t R;
         for (int i = 0; i < 3; i++){
             for(int j = 0; j < 3; j++){
@@ -223,7 +222,7 @@ public:
     size_t cam_index = getcamCorrespondence(index);
     //std::cout << "Getting rotation of cam index " << (int) cam_index << std::endl;
     opengv::rotation_t rtn = rotationFromArray(_camRotations, cam_index);
-    std::cout << "cam index: " << cam_index << "\n"<<"cam rot " << rtn << "\n";
+    //std::cout << "cam index: " << cam_index << "\n"<<"cam rot " << rtn << "\n";
     return rtn;
   }
 
@@ -493,7 +492,9 @@ py::object ransac(
 
   // Solve
   ransac.computeModel();
-  return arrayFromTransformation(ransac.model_coefficients_);
+    py::object transformation_result = arrayFromTransformation(ransac.model_coefficients_);
+    py::object inlier_indices = py_array_from_vector(ransac.inliers_);
+    return py::make_tuple(transformation_result, inlier_indices);
 }
 
 py::object lmeds(
@@ -733,7 +734,10 @@ py::object ransac(
 
   // Solve
   ransac.computeModel();
-  return arrayFromTransformation(ransac.model_coefficients_);
+    py::object transformation_result = arrayFromTransformation(ransac.model_coefficients_);
+    py::object inlier_indices = py_array_from_vector(ransac.inliers_);
+    return py::make_tuple(transformation_result, inlier_indices);
+
 }
 
 py::object lmeds(

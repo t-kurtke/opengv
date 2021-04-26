@@ -1,5 +1,8 @@
 lib
 build
+cmake-build-debug
+.idea
+*.so
 *.mexa64
 *.pyc
 .vscode
