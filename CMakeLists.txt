@@ -16,7 +16,7 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
-OPTION(BUILD_TESTS "Build tests" ON)
+OPTION(BUILD_TESTS "Build tests" OFF)
 OPTION(BUILD_PYTHON "Build Python extension" ON)
 
 IF(MSVC)
